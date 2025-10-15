@@ -1,4 +1,4 @@
-// Jenkinsfile (Versión simplificada para solo crear el artefacto)
+// Jenkinsfile (Versión corregida con stash/unstash)
 pipeline {
     agent any
 
@@ -34,18 +34,32 @@ pipeline {
                     }
                 }
             }
+            // ▼▼▼ PASO AÑADIDO: GUARDAR EL REPORTE ▼▼▼
+            // Este bloque post se ejecuta solo si la etapa fue exitosa.
+            post {
+                success {
+                    echo "Guardando el reporte generado para pasarlo a la etapa final."
+                    stash name: 'reporte-generado', includes: 'reporte_disponibilidad_*.csv'
+                }
+            }
         }
     }
 
     // --- ACCIONES POST-EJECUCIÓN SIMPLIFICADAS ---
-    // Este bloque se ejecuta siempre al final para archivar y limpiar.
     post {
         always {
             node('agente-ansible') {
                 echo "Pipeline finalizado. Archivando el reporte..."
 
-                // 1. Archiva el reporte CSV para que sea descargable desde la página del build.
+                // ▼▼▼ PASO AÑADIDO: RECUPERAR EL REPORTE ▼▼▼
+                echo "Recuperando el reporte guardado."
+                unstash 'reporte-generado'
+
+                // 1. Archiva el reporte CSV. Ahora sí lo encontrará.
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
+
+                // 2. Limpia el workspace para la siguiente ejecución.
+                cleanWs()
             }
         }
     }
