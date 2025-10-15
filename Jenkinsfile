@@ -1,4 +1,4 @@
-// Jenkinsfile (Versión con 'node' en el post)
+// Jenkinsfile (Versión Final Corregida)
 pipeline {
     agent any
 
@@ -45,7 +45,6 @@ pipeline {
     // --- ACCIONES POST-EJECUCIÓN CORREGIDAS ---
     post {
         always {
-            // Se asigna un 'node' para darle contexto de workspace a los pasos.
             node('agente-ansible') {
                 echo "Pipeline finalizado. Archivando y notificando..."
 
@@ -55,12 +54,13 @@ pipeline {
                 // 2. Notifica a Power Automate.
                 script {
                     echo "Enviando notificación a Power Automate..."
-                    sh '''
+                    // ▼▼▼ SE CAMBIARON LAS COMILLAS AQUÍ ▼▼▼
+                    sh """
                         ARTIFACT_NAME="reporte_disponibilidad_${params.TARGET_VM_NAME}.csv"
                         curl -X POST -H "Content-Type: application/json" \
-                        -d '{"buildNumber": "${BUILD_NUMBER}", "artifactName": "'$ARTIFACT_NAME'", "jobName": "${JOB_NAME}"}' \
+                        -d '{"buildNumber": "${BUILD_NUMBER}", "artifactName": "'\$ARTIFACT_NAME'", "jobName": "${JOB_NAME}"}' \
                         "${POWER_AUTOMATE_WEBHOOK_URL}"
-                    '''
+                    """
                 }
 
                 // 3. Limpia el workspace.
