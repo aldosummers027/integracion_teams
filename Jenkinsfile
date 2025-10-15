@@ -1,9 +1,8 @@
-// Jenkinsfile (Versión Final Corregida)
+// Jenkinsfile (Versión Final con Stash y Unstash)
 pipeline {
     agent any
 
     environment {
-        // Inyecta la URL del webhook desde una credencial de Jenkins.
         POWER_AUTOMATE_WEBHOOK_URL = credentials('power-automate-webhook-url')
     }
 
@@ -39,6 +38,13 @@ pipeline {
                     }
                 }
             }
+            // ▼▼▼ PASO AÑADIDO: GUARDAR EL REPORTE ▼▼▼
+            post {
+                success {
+                    echo "Guardando el reporte generado para pasarlo a la etapa final."
+                    stash name: 'reporte-generado', includes: 'reporte_disponibilidad_*.csv'
+                }
+            }
         }
     }
 
@@ -48,13 +54,16 @@ pipeline {
             node('agente-ansible') {
                 echo "Pipeline finalizado. Archivando y notificando..."
 
-                // 1. Archiva el reporte CSV.
+                // ▼▼▼ PASO AÑADIDO: RECUPERAR EL REPORTE ▼▼▼
+                echo "Recuperando el reporte guardado."
+                unstash 'reporte-generado'
+
+                // 1. Archiva el reporte CSV. Ahora sí lo encontrará.
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
 
                 // 2. Notifica a Power Automate.
                 script {
                     echo "Enviando notificación a Power Automate..."
-                    // ▼▼▼ SE CAMBIARON LAS COMILLAS AQUÍ ▼▼▼
                     sh """
                         ARTIFACT_NAME="reporte_disponibilidad_${params.TARGET_VM_NAME}.csv"
                         curl -X POST -H "Content-Type: application/json" \
