@@ -37,7 +37,7 @@
         # Usamos el filtro 'selectattr' para buscar en la lista de VMs
         # el diccionario donde la llave 'vm_name' sea igual a 'target_vm_name'.
         # El '| first' toma solo el primer resultado encontrado.
-        vm_encontrada: "{{ inventario_vms.list | selectattr('nombre_de_la_VM', 'equalto', target_vm_name) | first }}"
+        vm_encontrada: "{{ inventario_vms.list | selectattr('nombre_de_la_VM', 'match', '(?i)^' + target_vm_name + '$') | first | default(omit, true) }}"
 
     - name: 3. Validar si la VM fue encontrada en el inventario
       ansible.builtin.fail:
