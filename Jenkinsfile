@@ -1,4 +1,4 @@
-// Jenkinsfile (Versión corregida con stash/unstash)
+// Jenkinsfile (Versión final con limpieza de workspace)
 pipeline {
     agent any
 
@@ -20,6 +20,9 @@ pipeline {
 
         stage('Ejecutar Reporte de Disponibilidad') {
             steps {
+                // ▼▼▼ PASO AÑADIDO: LIMPIAR EL WORKSPACE PRIMERO ▼▼▼
+                cleanWs()
+
                 withCredentials([
                     string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
                     string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
@@ -34,8 +37,6 @@ pipeline {
                     }
                 }
             }
-            // ▼▼▼ PASO AÑADIDO: GUARDAR EL REPORTE ▼▼▼
-            // Este bloque post se ejecuta solo si la etapa fue exitosa.
             post {
                 success {
                     echo "Guardando el reporte generado para pasarlo a la etapa final."
@@ -45,20 +46,18 @@ pipeline {
         }
     }
 
-    // --- ACCIONES POST-EJECUCIÓN SIMPLIFICADAS ---
+    // --- ACCIONES POST-EJECUCIÓN ---
     post {
         always {
             node('agente-ansible') {
                 echo "Pipeline finalizado. Archivando el reporte..."
-
-                // ▼▼▼ PASO AÑADIDO: RECUPERAR EL REPORTE ▼▼▼
-                echo "Recuperando el reporte guardado."
                 unstash 'reporte-generado'
 
-                // 1. Archiva el reporte CSV. Ahora sí lo encontrará.
+                // 1. Archiva el reporte CSV.
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
 
-                // 2. Limpia el workspace para la siguiente ejecución.
+                // 2. Limpia el workspace al final (opcional, pero buena práctica).
+                //    Se movió la limpieza principal al inicio del stage.
                 cleanWs()
             }
         }
