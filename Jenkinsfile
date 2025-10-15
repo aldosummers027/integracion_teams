@@ -27,15 +27,14 @@ pipeline {
         // Etapa 2: Ejecutar el Playbook de Ansible
         stage('Ejecutar Reporte de Disponibilidad') {
             steps {
-                // El bloque 'withCredentials' inyecta de forma segura las credenciales de Azure
-                // como variables de entorno. Ansible las detectará automáticamente.
-                withCredentials([azureServicePrincipal('azure-credentials-prod')]) {
-                    script {
-                        echo "Ejecutando playbook para la VM: ${params.TARGET_VM_NAME}"
-                        
-                        // NOTA: Se asume que 'ansible-playbook' está instalado en el agente de Jenkins.
-                        // El comando -e (extra-vars) pasa el parámetro del usuario al playbook.
-                        sh '''
+                // Injects the credentials as environment variables
+                withCredentials([
+                    string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
+                    string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
+                    string(credentialsId: 'azure-tenant-id', variable: 'AZURE_TENANT_ID')
+                ]) {
+                    // This block runs with the credentials available
+                    sh '''
                             source /home/ubuntu/ansible_venv/bin/activate
                             ansible-playbook playbook_reporte_dinamico.yml -e "target_vm_name=${params.TARGET_VM_NAME}"
                         '''
