@@ -1,4 +1,4 @@
-// Jenkinsfile (Versión final con limpieza de workspace)
+// Jenkinsfile (Versión corregida con limpieza al inicio)
 pipeline {
     agent any
 
@@ -13,6 +13,10 @@ pipeline {
     stages {
         stage('Checkout SCM') {
             steps {
+                // ▼▼▼ PASO 1: LIMPIAR EL WORKSPACE PRIMERO ▼▼▼
+                cleanWs()
+
+                // ▼▼▼ PASO 2: DESCARGAR EL CÓDIGO DESPUÉS DE LIMPIAR ▼▼▼
                 checkout scm
                 echo "Código descargado correctamente."
             }
@@ -20,9 +24,7 @@ pipeline {
 
         stage('Ejecutar Reporte de Disponibilidad') {
             steps {
-                // ▼▼▼ PASO AÑADIDO: LIMPIAR EL WORKSPACE PRIMERO ▼▼▼
-                cleanWs()
-
+                // (Ya no hay cleanWs aquí)
                 withCredentials([
                     string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
                     string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
@@ -53,11 +55,10 @@ pipeline {
                 echo "Pipeline finalizado. Archivando el reporte..."
                 unstash 'reporte-generado'
 
-                // 1. Archiva el reporte CSV.
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
 
-                // 2. Limpia el workspace al final (opcional, pero buena práctica).
-                //    Se movió la limpieza principal al inicio del stage.
+                // Se puede dejar o quitar la limpieza final,
+                // ya que ahora se limpia al inicio de cada ejecución.
                 cleanWs()
             }
         }
