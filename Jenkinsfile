@@ -36,6 +36,7 @@ pipeline {
                         // NOTA: Se asume que 'ansible-playbook' está instalado en el agente de Jenkins.
                         // El comando -e (extra-vars) pasa el parámetro del usuario al playbook.
                         sh '''
+                            source /home/ubuntu/ansible_venv/bin/activate
                             ansible-playbook playbook_reporte_dinamico.yml -e "target_vm_name=${params.TARGET_VM_NAME}"
                         '''
                     }
