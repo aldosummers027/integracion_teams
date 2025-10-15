@@ -37,7 +37,7 @@
         # Usamos el filtro 'selectattr' para buscar en la lista de VMs
         # el diccionario donde la llave 'vm_name' sea igual a 'target_vm_name'.
         # El '| first' toma solo el primer resultado encontrado.
-        vm_encontrada: "{{ inventario_vms.list | selectattr('vm_name', 'equalto', target_vm_name) | first }}"
+        vm_encontrada: "{{ inventario_vms.list | selectattr('nombre_de_la_VM', 'equalto', target_vm_name) | first }}"
 
     - name: 3. Validar si la VM fue encontrada en el inventario
       ansible.builtin.fail:
@@ -56,14 +56,14 @@
 
     - name: 5. Obtener el nombre de la Suscripción
       azure.azcollection.azure_rm_subscription_info:
-        subscription_id: "{{ vm_encontrada.subscription_id }}" # <--- DATO DEL CSV
+        subscription_id: "{{ vm_encontrada.id_de_la_suscripcion }}" # <--- DATO DEL CSV
       register: info_suscripcion
 
     - name: 6. Obtener el ID completo de la VM desde Azure
       azure.azcollection.azure_rm_virtualmachine_info:
-        subscription_id: "{{ vm_encontrada.subscription_id }}" # <--- DATO DEL CSV
-        resource_group: "{{ vm_encontrada.resource_group }}" # <--- DATO DEL CSV
-        name: "{{ vm_encontrada.vm_name }}"                 # <--- DATO DEL CSV
+        subscription_id: "{{ vm_encontrada.id_de_la_suscripcion }}" # <--- DATO DEL CSV
+        resource_group: "{{ vm_encontrada.grupo_de_recursos }}" # <--- DATO DEL CSV
+        name: "{{ vm_encontrada.nombre_de_la_VM }}"                 # <--- DATO DEL CSV
       register: resultado_vm
 
     - name: 7. Consultando disponibilidad con Azure CLI
@@ -94,8 +94,8 @@
         path: "{{ ruta_reporte_csv }}"
         line: >-
           {{ info_suscripcion.subscriptions[0].display_name }},
-          {{ vm_encontrada.resource_group }},
-          {{ vm_encontrada.vm_name }},
+          {{ vm_encontrada.grupo_de_recursos }},
+          {{ vm_encontrada.nombre_de_la_VM }},
           {{ average_value | round(2) | default('N/A') }}
       when: datos_metrica_cli is not failed and datos_metrica_cli.stdout != ""
 
