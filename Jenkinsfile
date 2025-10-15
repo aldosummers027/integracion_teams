@@ -36,7 +36,7 @@ pipeline {
                     // This block runs with the credentials available
                     sh """
                             source /home/ubuntu/ansible_venv/bin/activate
-                            ansible-playbook playbook_reporte_dinamico.yml -e "target_vm_name=${params.TARGET_VM_NAME}"
+                            ansible-playbook disponibilidad_vm_especifica.yml -e "target_vm_name=${params.TARGET_VM_NAME}"
                         """
                     }
                 }
