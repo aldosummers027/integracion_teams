@@ -34,10 +34,10 @@ pipeline {
                     string(credentialsId: 'azure-tenant-id', variable: 'AZURE_TENANT_ID')
                 ]) {
                     // This block runs with the credentials available
-                    sh '''
+                    sh """
                             source /home/ubuntu/ansible_venv/bin/activate
                             ansible-playbook playbook_reporte_dinamico.yml -e "target_vm_name=${params.TARGET_VM_NAME}"
-                        '''
+                        """
                     }
                 }
             }
