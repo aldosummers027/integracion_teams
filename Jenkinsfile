@@ -1,10 +1,6 @@
-// Jenkinsfile (Versión Final con Stash y Unstash)
+// Jenkinsfile (Versión simplificada para solo crear el artefacto)
 pipeline {
     agent any
-
-    environment {
-        POWER_AUTOMATE_WEBHOOK_URL = credentials('power-automate-webhook-url')
-    }
 
     parameters {
         string(
@@ -38,41 +34,20 @@ pipeline {
                     }
                 }
             }
-            // ▼▼▼ PASO AÑADIDO: GUARDAR EL REPORTE ▼▼▼
-            post {
-                success {
-                    echo "Guardando el reporte generado para pasarlo a la etapa final."
-                    stash name: 'reporte-generado', includes: 'reporte_disponibilidad_*.csv'
-                }
-            }
         }
     }
 
-    // --- ACCIONES POST-EJECUCIÓN CORREGIDAS ---
+    // --- ACCIONES POST-EJECUCIÓN SIMPLIFICADAS ---
+    // Este bloque se ejecuta siempre al final para archivar y limpiar.
     post {
         always {
             node('agente-ansible') {
-                echo "Pipeline finalizado. Archivando y notificando..."
+                echo "Pipeline finalizado. Archivando el reporte..."
 
-                // ▼▼▼ PASO AÑADIDO: RECUPERAR EL REPORTE ▼▼▼
-                echo "Recuperando el reporte guardado."
-                unstash 'reporte-generado'
-
-                // 1. Archiva el reporte CSV. Ahora sí lo encontrará.
+                // 1. Archiva el reporte CSV para que sea descargable desde la página del build.
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
 
-                // 2. Notifica a Power Automate.
-                script {
-                    echo "Enviando notificación a Power Automate..."
-                    sh """
-                        ARTIFACT_NAME="reporte_disponibilidad_${params.TARGET_VM_NAME}.csv"
-                        curl -X POST -H "Content-Type: application/json" \
-                        -d '{"buildNumber": "${BUILD_NUMBER}", "artifactName": "'\$ARTIFACT_NAME'", "jobName": "${JOB_NAME}"}' \
-                        "${POWER_AUTOMATE_WEBHOOK_URL}"
-                    """
-                }
-
-                // 3. Limpia el workspace.
+                // 2. Limpia el workspace para la siguiente ejecución.
                 cleanWs()
             }
         }
