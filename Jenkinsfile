@@ -1,9 +1,7 @@
-// Jenkinsfile (Versión corregida y limpia)
+// Jenkinsfile
 pipeline {
-    // Define el agente donde se ejecutará el pipeline.
     agent any
 
-    // --- SECCIÓN DE PARÁMETROS ---
     parameters {
         string(
             name: 'TARGET_VM_NAME', 
@@ -12,9 +10,7 @@ pipeline {
         )
     }
 
-    // --- ETAPAS DEL PIPELINE ---
     stages {
-        // Etapa 1: Descargar el código desde Git
         stage('Checkout SCM') {
             steps {
                 checkout scm
@@ -22,13 +18,14 @@ pipeline {
             }
         }
 
-        // Etapa 2: Ejecutar el Playbook de Ansible
         stage('Ejecutar Reporte de Disponibilidad') {
             steps {
-                // Inyecta las credenciales de Azure de forma segura.
-                // Asegúrate de tener una credencial en Jenkins de tipo "Microsoft Azure Service Principal"
-                // con el ID 'azure-credentials-prod' (o el que hayas configurado).
-                withCredentials([azureServicePrincipal('azure-credentials-prod')]) {
+                // ▼▼ USAREMOS ESTE BLOQUE DE CREDENCIALES ▼▼
+                withCredentials([
+                    string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
+                    string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
+                    string(credentialsId: 'azure-tenant-id', variable: 'AZURE_TENANT_ID')
+                ]) {
                     script {
                         echo "Ejecutando playbook para la VM: ${params.TARGET_VM_NAME}"
                         sh """
@@ -39,18 +36,12 @@ pipeline {
                 }
             }
         }
-    } // <-- El bloque 'stages' termina aquí
+    }
 
-    // --- ACCIONES POST-EJECUCIÓN ---
-    // Este bloque se ejecuta siempre al final.
     post {
         always {
             echo "Pipeline finalizado. Archivando los reportes generados..."
-            
-            // Archiva el reporte CSV para que sea descargable.
             archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
-            
-            // Limpia el workspace.
             cleanWs()
         }
     }
