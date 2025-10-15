@@ -46,9 +46,6 @@ pipeline {
 
                 // 1. Archiva el reporte CSV para que sea descargable desde la página del build.
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
-
-                // 2. Limpia el workspace para la siguiente ejecución.
-                cleanWs()
             }
         }
     }
