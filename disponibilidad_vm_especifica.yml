@@ -1,0 +1,104 @@
+# playbook_reporte_dinamico.yml
+
+---
+- name: Generar Reporte de Disponibilidad para una VM especifica
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    # La ruta a tu inventario. Puede estar en el mismo directorio o en otra ruta.
+    ruta_inventario_csv: "./inventario_vms_azure.csv"
+    
+    # La ruta donde se guardara el reporte final.
+    ruta_reporte_csv: "./reporte_disponibilidad_{{ target_vm_name }}.csv"
+
+    # ▼ ESTA VARIABLE LA PASARÁ JENKINS ▼
+    # Para probarlo manualmente, descomenta la siguiente línea o pásala por la línea de comandos:
+    # ansible-playbook playbook_reporte_dinamico.yml -e "target_vm_name=FCOWLQ05"
+    # target_vm_name: "FCOWLQ05"
+
+  tasks:
+    # -------------------------------------------------------------------------
+    # FASE 1: BUSCAR LA VM EN NUESTRO INVENTARIO CSV
+    # -------------------------------------------------------------------------
+
+    - name: 1. Leer el archivo de inventario CSV
+      community.general.read_csv:
+        path: "{{ ruta_inventario_csv }}"
+      register: inventario_vms
+      # Este `delegate_to` y `run_once` asegura que se lea solo una vez
+      # en el controlador de Ansible, no en un host remoto.
+      delegate_to: localhost
+      run_once: true
+
+    - name: 2. Buscar los datos de la VM solicitada en el inventario
+      ansible.builtin.set_fact:
+        # Usamos el filtro 'selectattr' para buscar en la lista de VMs
+        # el diccionario donde la llave 'vm_name' sea igual a 'target_vm_name'.
+        # El '| first' toma solo el primer resultado encontrado.
+        vm_encontrada: "{{ inventario_vms.list | selectattr('vm_name', 'equalto', target_vm_name) | first }}"
+
+    - name: 3. Validar si la VM fue encontrada en el inventario
+      ansible.builtin.fail:
+        msg: "ERROR: La VM '{{ target_vm_name }}' no fue encontrada en el inventario '{{ ruta_inventario_csv }}'. Por favor, verifique el nombre."
+      when: vm_encontrada is not defined
+
+    # -------------------------------------------------------------------------
+    # FASE 2: GENERAR EL REPORTE (TU LÓGICA ORIGINAL ADAPTADA)
+    # -------------------------------------------------------------------------
+
+    - name: 4. Crear el archivo CSV de reporte
+      ansible.builtin.copy:
+        content: "nombre_suscripcion,grupo_de_recursos,nombre_vm,disponibilidad_porcentaje"
+        dest: "{{ ruta_reporte_csv }}"
+        force: yes
+
+    - name: 5. Obtener el nombre de la Suscripción
+      azure.azcollection.azure_rm_subscription_info:
+        subscription_id: "{{ vm_encontrada.subscription_id }}" # <--- DATO DEL CSV
+      register: info_suscripcion
+
+    - name: 6. Obtener el ID completo de la VM desde Azure
+      azure.azcollection.azure_rm_virtualmachine_info:
+        subscription_id: "{{ vm_encontrada.subscription_id }}" # <--- DATO DEL CSV
+        resource_group: "{{ vm_encontrada.resource_group }}" # <--- DATO DEL CSV
+        name: "{{ vm_encontrada.vm_name }}"                 # <--- DATO DEL CSV
+      register: resultado_vm
+
+    - name: 7. Consultando disponibilidad con Azure CLI
+      # (La lógica de fechas se mantiene igual)
+      vars:
+        hoy: "{{ now(utc=True) }}"
+        mes_pasado: >-
+          {% if hoy.month == 1 %}12{% else %}{{ hoy.month - 1 }}{% endif %}
+        ano_de_mes_pasado: >-
+          {% if hoy.month == 1 %}{{ hoy.year - 1 }}{% else %}{{ hoy.year }}{% endif %}
+        inicio_mes_pasado: "{{ ano_de_mes_pasado }}-{{ '%02d' | format(mes_pasado|int) }}-01T00:00:00Z"
+        inicio_este_mes: "{{ hoy.strftime('%Y-%m-01') }}T00:00:00Z"
+      ansible.builtin.command: >-
+        az monitor metrics list
+        --resource "{{ resultado_vm.vms[0].id }}"
+        --metric VmAvailabilityMetric
+        --aggregation Average
+        --start-time "{{ inicio_mes_pasado }}"
+        --end-time "{{ inicio_este_mes }}"
+      register: datos_metrica_cli
+      ignore_errors: true
+
+    - name: 8. Procesar el resultado y añadir al CSV final
+      vars:
+        metric_json: "{{ datos_metrica_cli.stdout | from_json }}"
+        average_value: "{{ metric_json.value[0].timeseries[0].data[0].average }}"
+      ansible.builtin.lineinfile:
+        path: "{{ ruta_reporte_csv }}"
+        line: >-
+          {{ info_suscripcion.subscriptions[0].display_name }},
+          {{ vm_encontrada.resource_group }},
+          {{ vm_encontrada.vm_name }},
+          {{ average_value | round(2) | default('N/A') }}
+      when: datos_metrica_cli is not failed and datos_metrica_cli.stdout != ""
+
+    - name: 9. Mensaje de éxito
+      ansible.builtin.debug:
+        msg: "Reporte para {{ target_vm_name }} generado exitosamente en {{ ruta_reporte_csv }}"
