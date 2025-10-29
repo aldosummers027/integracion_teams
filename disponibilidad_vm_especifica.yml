@@ -7,46 +7,27 @@
   gather_facts: no
 
   vars:
-    # La ruta a tu inventario. Puede estar en el mismo directorio o en otra ruta.
     ruta_inventario_csv: "./inventario_vms_azure.csv"
     
-    # La ruta donde se guardara el reporte final.
     ruta_reporte_csv: "./reporte_disponibilidad_{{ target_vm_name }}.csv"
 
-    # ▼ ESTA VARIABLE LA PASARÁ JENKINS ▼
-    # Para probarlo manualmente, descomenta la siguiente línea o pásala por la línea de comandos:
-    # ansible-playbook playbook_reporte_dinamico.yml -e "target_vm_name=FCOWLQ05"
-    # target_vm_name: "FCOWLQ05"
-
   tasks:
-    # -------------------------------------------------------------------------
-    # FASE 1: BUSCAR LA VM EN NUESTRO INVENTARIO CSV
-    # -------------------------------------------------------------------------
 
     - name: 1. Leer el archivo de inventario CSV
       community.general.read_csv:
         path: "{{ ruta_inventario_csv }}"
       register: inventario_vms
-      # Este `delegate_to` y `run_once` asegura que se lea solo una vez
-      # en el controlador de Ansible, no en un host remoto.
       delegate_to: localhost
       run_once: true
 
     - name: 2. Buscar los datos de la VM solicitada en el inventario
       ansible.builtin.set_fact:
-        # Usamos el filtro 'selectattr' para buscar en la lista de VMs
-        # el diccionario donde la llave 'vm_name' sea igual a 'target_vm_name'.
-        # El '| first' toma solo el primer resultado encontrado.
         vm_encontrada: "{{ inventario_vms.list | selectattr('nombre_de_la_VM', 'match', '(?i)^' + target_vm_name + '$') | first | default(omit, true) }}"
 
     - name: 3. Validar si la VM fue encontrada en el inventario
       ansible.builtin.fail:
         msg: "ERROR: La VM '{{ target_vm_name }}' no fue encontrada en el inventario '{{ ruta_inventario_csv }}'. Por favor, verifique el nombre."
       when: vm_encontrada is not defined
-
-    # -------------------------------------------------------------------------
-    # FASE 2: GENERAR EL REPORTE (TU LÓGICA ORIGINAL ADAPTADA)
-    # -------------------------------------------------------------------------
 
     - name: 4. Crear el archivo CSV de reporte
       ansible.builtin.copy:
@@ -56,18 +37,17 @@
 
     - name: 5. Obtener el nombre de la Suscripción
       azure.azcollection.azure_rm_subscription_info:
-        subscription_id: "{{ vm_encontrada.id_de_la_suscripcion }}" # <--- DATO DEL CSV
+        subscription_id: "{{ vm_encontrada.id_de_la_suscripcion }}"
       register: info_suscripcion
 
     - name: 6. Obtener el ID completo de la VM desde Azure
       azure.azcollection.azure_rm_virtualmachine_info:
-        subscription_id: "{{ vm_encontrada.id_de_la_suscripcion }}" # <--- DATO DEL CSV
-        resource_group: "{{ vm_encontrada.grupo_de_recursos }}" # <--- DATO DEL CSV
-        name: "{{ vm_encontrada.nombre_de_la_VM }}"                 # <--- DATO DEL CSV
+        subscription_id: "{{ vm_encontrada.id_de_la_suscripcion }}"
+        resource_group: "{{ vm_encontrada.grupo_de_recursos }}"
+        name: "{{ vm_encontrada.nombre_de_la_VM }}"
       register: resultado_vm
 
     - name: 7. Consultando disponibilidad con Azure CLI
-      # (La lógica de fechas se mantiene igual)
       vars:
         hoy: "{{ now(utc=True) }}"
         mes_pasado: >-

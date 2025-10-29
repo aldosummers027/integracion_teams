@@ -13,10 +13,8 @@ pipeline {
     stages {
         stage('Checkout SCM') {
             steps {
-                // ▼▼▼ PASO 1: LIMPIAR EL WORKSPACE PRIMERO ▼▼▼
                 cleanWs()
 
-                // ▼▼▼ PASO 2: DESCARGAR EL CÓDIGO DESPUÉS DE LIMPIAR ▼▼▼
                 checkout scm
                 echo "Código descargado correctamente."
             }
@@ -24,7 +22,6 @@ pipeline {
 
         stage('Ejecutar Reporte de Disponibilidad') {
             steps {
-                // (Ya no hay cleanWs aquí)
                 withCredentials([
                     string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
                     string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
@@ -48,7 +45,6 @@ pipeline {
         }
     }
 
-    // --- ACCIONES POST-EJECUCIÓN ---
     post {
         always {
             node('agente-ansible') {
@@ -57,8 +53,6 @@ pipeline {
 
                 archiveArtifacts artifacts: 'reporte_disponibilidad_*.csv', allowEmptyArchive: true
 
-                // Se puede dejar o quitar la limpieza final,
-                // ya que ahora se limpia al inicio de cada ejecución.
                 cleanWs()
             }
         }
